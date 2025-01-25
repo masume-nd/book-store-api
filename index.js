@@ -25,7 +25,7 @@ mongoose
   });
 
 // JWT Secret
-const JWT_SECRET = 'your_jwt_secret';
+const JWT_SECRET = 'MasoumeJWTSecret';
 
 // User Routes
 app.post('/api/users/register', async (req, res) => {
