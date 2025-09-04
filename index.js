@@ -25,7 +25,7 @@ mongoose
   });
 
 // JWT Secret
-const JWT_SECRET = 'MasoumeJWTSecret';
+const JWT_SECRET = 'your_jwt_secret';
 
 // User Routes
 app.post('/api/users/register', async (req, res) => {
@@ -168,7 +168,8 @@ app.get('/api/cart', authenticate, async (req, res) => {
     );
     res.json({ cart, total });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    
+    res.status(505).json({ error: err.message });
   }
 });
 
@@ -210,6 +211,76 @@ app.put('/api/cart/checkout', authenticate, async (req, res) => {
     cart.status = 'done';
     await cart.save();
     res.json({ message: 'Cart checked out successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/cart/:id', authenticate, async (req, res) => {
+  try {
+    const { id: bookId } = req.params; // Extract bookId from URL parameters
+   
+    let cart = await Cart.findOne({
+      userId: req.user.userId,
+      status: 'pending',
+    });
+
+    if (!cart) {
+      return res
+        .status(400)
+        .json({ message: 'No pending cart to delete from' });
+    } // Find the index of the book in the cart items
+
+    const itemIndex = cart.items.findIndex(
+      (item) => item.bookId.toString() === bookId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(400).json({ message: 'Book not found in cart' });
+    } // Remove the book from the cart items
+
+    cart.items.splice(itemIndex, 1); // Save the updated cart
+
+    await cart.save();
+
+    res.json({ message: 'Book deleted from cart', cart });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: 'An error occurred while deleting the book from the cart.',
+    });
+  }
+});
+
+app.get('/api/purchases', authenticate, async (req, res) => {
+  try {
+    const carts = await Cart.find({
+      userId: req.user.userId,
+      status: 'done',
+    }).populate('items.bookId');
+
+    const cartData = carts.map((cart) => {
+      const total = cart.items.reduce(
+        (sum, item) => sum + (item.bookId.price || 0) * item.quantity,
+        0
+      );
+
+      const books = cart.items.map((item) => ({
+        bookId: item.bookId._id,
+        title: item.bookId.title,
+        imageUrl: item.bookId.imageUrl,
+        price: item.bookId.price,
+        quantity: item.quantity,
+      }));
+
+      return {
+        cartId: cart._id,
+        total,
+        books,
+      };
+    });
+
+    res.json({ carts: cartData });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
